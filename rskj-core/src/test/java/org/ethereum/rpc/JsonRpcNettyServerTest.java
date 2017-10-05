@@ -63,6 +63,7 @@ public class JsonRpcNettyServerTest {
         HttpURLConnection jsonRpcConnection = (HttpURLConnection) jsonRpcServer.openConnection();
         jsonRpcConnection.setDoOutput(true);
         jsonRpcConnection.setRequestMethod("POST");
+        jsonRpcConnection.setRequestProperty("Content-Type", "application/json");
         jsonRpcConnection.setRequestProperty("Content-Length", String.valueOf(request.length));
         OutputStream os = jsonRpcConnection.getOutputStream();
         os.write(request);
