@@ -56,4 +56,18 @@ public class OriginValidatorTest {
         Assert.assertFalse(validator.isValid("http://localhost"));
         Assert.assertTrue(validator.isValid("https://rsk.co"));
     }
+
+    @Test()
+    public void allowTwoDomains() throws URISyntaxException {
+        OriginValidator validator = new OriginValidator("https://rsk.co https://rsk.com.ar");
+
+        Assert.assertFalse(validator.isValid("http://localhost"));
+        Assert.assertTrue(validator.isValid("https://rsk.co"));
+        Assert.assertTrue(validator.isValid("https://rsk.com.ar"));
+    }
+
+    @Test(expected = java.net.URISyntaxException.class)
+    public void invalidUriInCreation() throws URISyntaxException {
+        new OriginValidator("//");
+    }
 }
