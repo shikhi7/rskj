@@ -29,6 +29,7 @@ import co.rsk.rpc.CorsConfiguration;
 import co.rsk.rpc.Web3RskImpl;
 import org.ethereum.cli.CLIInterface;
 import org.ethereum.config.DefaultConfig;
+import org.ethereum.config.SystemProperties;
 import org.ethereum.rpc.JsonRpcNettyServer;
 import org.ethereum.rpc.JsonRpcWeb3ServerHandler;
 import org.ethereum.rpc.Web3;
@@ -111,7 +112,7 @@ public class Start {
         if (RskSystemProperties.CONFIG.isRpcEnabled()) {
             logger.info("RPC enabled");
             Web3 web3Service = new Web3RskImpl(rsk);
-            JsonRpcWeb3ServerHandler serverHandler = new JsonRpcWeb3ServerHandler(web3Service, RskSystemProperties.CONFIG.getRpcModules());
+            JsonRpcWeb3ServerHandler serverHandler = new JsonRpcWeb3ServerHandler(web3Service, RskSystemProperties.CONFIG.getRpcModules(), RskSystemProperties.CONFIG.corsDomains());
             new JsonRpcNettyServer(
                 RskSystemProperties.CONFIG.rpcPort(),
                 RskSystemProperties.CONFIG.soLingerTime(),
