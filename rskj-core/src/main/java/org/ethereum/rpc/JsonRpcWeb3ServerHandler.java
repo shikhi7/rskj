@@ -60,6 +60,7 @@ public class JsonRpcWeb3ServerHandler extends SimpleChannelInboundHandler<FullHt
 
             String contentType = headers.get(HttpHeaders.Names.CONTENT_TYPE);
             String origin = headers.get(HttpHeaders.Names.ORIGIN);
+            String referer = headers.get(HttpHeaders.Names.REFERER);
 
             if (!"application/json".equals(contentType)) {
                 LOGGER.error("Unsupported content type");
@@ -67,6 +68,10 @@ public class JsonRpcWeb3ServerHandler extends SimpleChannelInboundHandler<FullHt
             }
             else if (origin != null && !this.originValidator.isValidOrigin(origin)) {
                 LOGGER.error("Invalid origin");
+                response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.FORBIDDEN);
+            }
+            else if (referer != null && !this.originValidator.isValidReferer(referer)) {
+                LOGGER.error("Invalid referer");
                 response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.FORBIDDEN);
             }
             else
