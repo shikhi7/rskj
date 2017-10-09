@@ -21,7 +21,7 @@ public class OriginValidator {
             this.origins = toUris(uriList);
     }
 
-    public boolean isValid(String origin) {
+    public boolean isValidOrigin(String origin) {
         if (this.allowAllOrigins)
             return true;
 
@@ -36,6 +36,40 @@ public class OriginValidator {
         for (int k = 0; k < origins.length; k++)
             if (originUri.equals(origins[k]))
                 return true;
+
+        return false;
+    }
+
+    public boolean isValidReferer(String referer) {
+        if (this.allowAllOrigins)
+            return true;
+
+        URL refererUrl = null;
+
+        try {
+            refererUrl = new URL(referer);
+        } catch (MalformedURLException e) {
+            return false;
+        }
+
+        String refererProtocol = refererUrl.getProtocol();
+
+        if (refererProtocol == null)
+            return false;
+
+        String refererHost = refererUrl.getHost();
+
+        if (refererHost == null)
+            return false;
+
+        int refererPort = refererUrl.getPort();
+
+        for (int k = 0; k < origins.length; k++) {
+            if (refererProtocol.equals(origins[k].getScheme()) &&
+                    refererHost.equals(origins[k].getHost()) &&
+                    refererPort == origins[k].getPort())
+                return true;
+        }
 
         return false;
     }
