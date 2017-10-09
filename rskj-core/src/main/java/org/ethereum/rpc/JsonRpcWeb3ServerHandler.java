@@ -83,7 +83,8 @@ public class JsonRpcWeb3ServerHandler extends SimpleChannelInboundHandler<FullHt
     }
 
     private HttpResponse processRequest(FullHttpRequest request) throws JsonProcessingException {
-        HttpResponse response;ByteBuf responseContent = Unpooled.buffer();
+        HttpResponse response;
+        ByteBuf responseContent = Unpooled.buffer();
         HttpResponseStatus responseStatus = HttpResponseStatus.OK;
         try (ByteBufOutputStream os = new ByteBufOutputStream(responseContent);
              ByteBufInputStream is = new ByteBufInputStream(request.content())){

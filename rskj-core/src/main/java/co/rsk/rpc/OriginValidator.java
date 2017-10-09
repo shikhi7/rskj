@@ -15,7 +15,7 @@ public class OriginValidator {
     public OriginValidator(String uriList) throws URISyntaxException {
         if (uriList == null)
             this.origins = new URI[0];
-        else if (uriList.trim().equals("*"))
+        else if ("*".equals(uriList.trim()))
             this.allowAllOrigins = true;
         else
             this.origins = toUris(uriList);
