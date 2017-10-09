@@ -65,7 +65,7 @@ public class JsonRpcWeb3ServerHandler extends SimpleChannelInboundHandler<FullHt
                 LOGGER.error("Unsupported content type");
                 response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.UNSUPPORTED_MEDIA_TYPE);
             }
-            else if (origin != null && !this.originValidator.isValid(origin)) {
+            else if (origin != null && !this.originValidator.isValidOrigin(origin)) {
                 LOGGER.error("Invalid origin");
                 response = new DefaultHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.FORBIDDEN);
             }
