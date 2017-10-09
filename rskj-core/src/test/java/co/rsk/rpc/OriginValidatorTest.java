@@ -84,7 +84,7 @@ public class OriginValidatorTest {
 
         Assert.assertFalse(validator.isValidReferer("http://localhost:3000/index.html"));
     }
-    
+
     @Test
     public void allowDomain() throws URISyntaxException {
         OriginValidator validator = new OriginValidator("https://rsk.co");
