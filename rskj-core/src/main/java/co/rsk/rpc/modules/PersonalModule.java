@@ -16,31 +16,27 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package co.rsk.core;
+package co.rsk.rpc.modules;
 
-import org.ethereum.datasource.HashMapDB;
-import org.ethereum.datasource.KeyValueDataSource;
-import org.ethereum.datasource.LevelDbDataSource;
+import co.rsk.config.RskSystemProperties;
+import org.ethereum.rpc.Web3;
 
-public class WalletFactory {
+public interface PersonalModule {
+    String dumpRawKey(String address) throws Exception;
 
-    public static Wallet createPersistentWallet() {
-        return createPersistentWallet("wallet");
-    }
+    String importRawKey(String key, String passphrase);
 
-    public static Wallet createPersistentWallet(String storeName) {
-        KeyValueDataSource ds = new LevelDbDataSource(storeName);
-        ds.init();
-        return new LocalWallet(ds);
-    }
+    void init(RskSystemProperties properties);
 
-    public static Wallet createDisabledWallet() {
-        return new DisabledWallet();
-    }
+    String[] listAccounts();
 
-    public static Wallet createWallet() {
-        return new LocalWallet(new HashMapDB());
-    }
+    boolean lockAccount(String address);
 
+    String newAccountWithSeed(String seed);
 
+    String newAccount(String passphrase);
+
+    String sendTransaction(Web3.CallArguments args, String passphrase) throws Exception;
+
+    boolean unlockAccount(String address, String passphrase, String duration);
 }

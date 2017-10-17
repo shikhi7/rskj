@@ -18,29 +18,8 @@
 
 package co.rsk.core;
 
-import org.ethereum.datasource.HashMapDB;
-import org.ethereum.datasource.KeyValueDataSource;
-import org.ethereum.datasource.LevelDbDataSource;
-
-public class WalletFactory {
-
-    public static Wallet createPersistentWallet() {
-        return createPersistentWallet("wallet");
+public class DisabledWalletException extends RuntimeException {
+    public DisabledWalletException() {
+        super("The local wallet feature is disabled");
     }
-
-    public static Wallet createPersistentWallet(String storeName) {
-        KeyValueDataSource ds = new LevelDbDataSource(storeName);
-        ds.init();
-        return new LocalWallet(ds);
-    }
-
-    public static Wallet createDisabledWallet() {
-        return new DisabledWallet();
-    }
-
-    public static Wallet createWallet() {
-        return new LocalWallet(new HashMapDB());
-    }
-
-
 }

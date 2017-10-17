@@ -16,31 +16,30 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package co.rsk.core;
+package co.rsk.rpc.modules;
 
-import org.ethereum.datasource.HashMapDB;
-import org.ethereum.datasource.KeyValueDataSource;
-import org.ethereum.datasource.LevelDbDataSource;
+import org.ethereum.facade.Ethereum;
+import org.ethereum.rpc.Web3;
+import org.ethereum.rpc.exception.JsonRpcInvalidParamException;
 
-public class WalletFactory {
+import java.util.Arrays;
 
-    public static Wallet createPersistentWallet() {
-        return createPersistentWallet("wallet");
+public class EthModuleWalletDisabled extends EthModule {
+
+    public EthModuleWalletDisabled(Ethereum eth) {
+        super(eth);
     }
 
-    public static Wallet createPersistentWallet(String storeName) {
-        KeyValueDataSource ds = new LevelDbDataSource(storeName);
-        ds.init();
-        return new LocalWallet(ds);
+    @Override
+    public String[] accounts() {
+        String[] accounts = {};
+        LOGGER.debug("eth_accounts(): {}", Arrays.toString(accounts));
+        return accounts;
     }
 
-    public static Wallet createDisabledWallet() {
-        return new DisabledWallet();
+    @Override
+    public String sendTransaction(Web3.CallArguments args) {
+        LOGGER.debug("eth_sendTransaction({}): {}", args, null);
+        throw new JsonRpcInvalidParamException("Local wallet is disabled in this node");
     }
-
-    public static Wallet createWallet() {
-        return new LocalWallet(new HashMapDB());
-    }
-
-
 }

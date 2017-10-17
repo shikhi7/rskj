@@ -18,214 +18,34 @@
 
 package co.rsk.core;
 
-import co.rsk.bitcoinj.core.Sha256Hash;
-import co.rsk.crypto.EncryptedData;
-import co.rsk.crypto.KeyCrypterAes;
 import org.ethereum.core.Account;
-import org.ethereum.crypto.ECKey;
-import org.ethereum.crypto.SHA3Helper;
-import org.ethereum.datasource.HashMapDB;
-import org.ethereum.datasource.KeyValueDataSource;
-import org.ethereum.db.ByteArrayWrapper;
-import org.spongycastle.crypto.params.KeyParameter;
 
-import javax.annotation.concurrent.GuardedBy;
-import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.List;
 
-/**
- * Created by ajlopez on 15/09/2016.
- */
-public class Wallet {
-    @GuardedBy("accessLock")
-    private KeyValueDataSource keyDS = new HashMapDB();
+public interface Wallet {
+    List<byte[]> getAccountAddresses();
 
-    @GuardedBy("accessLock")
-    private Map<ByteArrayWrapper, byte[]> accounts = new HashMap<>();
+    String[] getAccountAddressesAsHex();
 
-    private final Object accessLock = new Object();
-    private Map<ByteArrayWrapper, Long> unlocksTimeouts = new HashMap<>();
+    byte[] addAccount();
 
-    public void setStore(KeyValueDataSource ds) {
-        this.keyDS = ds;
-    }
+    byte[] addAccount(String passphrase);
 
-    public List<byte[]> getAccountAddresses() {
-        List<byte[]> addresses = new ArrayList<>();
-        Set<ByteArrayWrapper> keys = new HashSet<>();
+    byte[] addAccount(Account account);
 
-        synchronized(accessLock) {
-            for (byte[] address: keyDS.keys())
-                keys.add(new ByteArrayWrapper(address));
+    Account getAccount(byte[] address);
 
-            keys.addAll(accounts.keySet());
+    Account getAccount(byte[] address, String passphrase);
 
-            for (ByteArrayWrapper address: keys)
-                addresses.add(address.getData());
-        }
+    boolean unlockAccount(byte[] address, String passphrase, long duration);
 
-        return addresses;
-    }
+    boolean unlockAccount(byte[] address, String passphrase);
 
-    public byte[] addAccount() {
-        Account account = new Account(new ECKey());
-        return addAccount(account);
-    }
+    boolean lockAccount(byte[] address);
 
-    public byte[] addAccount(String passphrase) {
-        Account account = new Account(new ECKey());
-        saveAccount(account, passphrase);
-        return account.getAddress();
-    }
+    byte[] addAccountWithSeed(String seed);
 
-    public byte[] addAccount(Account account) {
-        saveAccount(account);
-        return account.getAddress();
-    }
+    byte[] addAccountWithPrivateKey(byte[] privateKeyBytes);
 
-    public Account getAccount(byte[] address) {
-        ByteArrayWrapper key = new ByteArrayWrapper(address);
-
-        synchronized (accessLock) {
-            if (!accounts.containsKey(key))
-                return null;
-
-            if (unlocksTimeouts.containsKey(key)) {
-                long ending = unlocksTimeouts.get(key);
-                long time = System.currentTimeMillis();
-                if (ending < time) {
-                    unlocksTimeouts.remove(key);
-                    accounts.remove(key);
-                    return null;
-                }
-            }
-            return new Account(ECKey.fromPrivate(accounts.get(key)));
-        }
-    }
-
-    public Account getAccount(byte[] address, String passphrase) {
-        synchronized (accessLock) {
-            byte[] encrypted = keyDS.get(address);
-
-            if (encrypted == null)
-                return null;
-
-            return new Account(ECKey.fromPrivate(decryptAES(encrypted, passphrase.getBytes(StandardCharsets.UTF_8))));
-        }
-    }
-
-    public boolean unlockAccount(byte[] address, String passphrase, long duration) {
-        long ending = System.currentTimeMillis() + duration;
-        boolean unlocked = unlockAccount(address, passphrase);
-
-        if (unlocked) {
-            synchronized (accessLock) {
-                unlocksTimeouts.put(new ByteArrayWrapper(address), ending);
-            }
-        }
-
-        return unlocked;
-    }
-
-    public boolean unlockAccount(byte[] address, String passphrase) {
-        Account account;
-
-        synchronized (accessLock) {
-            byte[] encrypted = keyDS.get(address);
-
-            if (encrypted == null)
-                return false;
-
-            account = new Account(ECKey.fromPrivate(decryptAES(encrypted, passphrase.getBytes(StandardCharsets.UTF_8))));
-        }
-
-        saveAccount(account);
-
-        return true;
-    }
-
-    public boolean lockAccount(byte[] address) {
-        synchronized (accessLock) {
-            ByteArrayWrapper key = new ByteArrayWrapper(address);
-
-            if (!accounts.containsKey(key))
-                return false;
-
-            accounts.remove(key);
-
-            return true;
-        }
-    }
-
-    public byte[] addAccountWithSeed(String seed) {
-        return addAccountWithPrivateKey(SHA3Helper.sha3(seed.getBytes(StandardCharsets.UTF_8)));
-    }
-
-    public byte[] addAccountWithPrivateKey(byte[] privateKeyBytes) {
-        Account account = new Account(ECKey.fromPrivate(privateKeyBytes));
-        return addAccount(account);
-    }
-
-    public byte[] addAccountWithPrivateKey(byte[] privateKeyBytes, String passphrase) {
-        Account account = new Account(ECKey.fromPrivate(privateKeyBytes));
-
-        saveAccount(account, passphrase);
-
-        return account.getAddress();
-    }
-
-    private void saveAccount(Account account) {
-        synchronized (accessLock) {
-            accounts.put(new ByteArrayWrapper(account.getAddress()), account.getEcKey().getPrivKeyBytes());
-        }
-    }
-
-    private void saveAccount(Account account, String passphrase) {
-        byte[] address = account.getAddress();
-        byte[] privateKeyBytes = account.getEcKey().getPrivKeyBytes();
-        byte[] encrypted = encryptAES(privateKeyBytes, passphrase.getBytes(StandardCharsets.UTF_8));
-
-        synchronized (accessLock) {
-            keyDS.put(address, encrypted);
-        }
-    }
-
-    private byte[] decryptAES(byte[] encryptedBytes, byte[] passphrase) {
-        try {
-            ByteArrayInputStream in = new ByteArrayInputStream(encryptedBytes);
-            ObjectInputStream byteStream = new ObjectInputStream(in);
-            KeyCrypterAes keyCrypter = new KeyCrypterAes();
-            KeyParameter keyParameter = new KeyParameter(Sha256Hash.hash(passphrase));
-
-            ArrayList<byte[]> bytes = (ArrayList<byte[]>) byteStream.readObject();
-            EncryptedData data = new EncryptedData(bytes.get(1), bytes.get(0));
-
-            return keyCrypter.decrypt(data, keyParameter);
-        } catch (IOException | ClassNotFoundException e) {
-            //There are lines of code that should never be executed, this is one of those
-            throw new IllegalStateException(e);
-        }
-    }
-
-    private byte[] encryptAES(byte[] privateKeyBytes, byte[] passphrase) {
-        KeyCrypterAes keyCrypter = new KeyCrypterAes();
-        KeyParameter keyParameter = new KeyParameter(Sha256Hash.hash(passphrase));
-        EncryptedData enc = keyCrypter.encrypt(privateKeyBytes, keyParameter);
-
-        try {
-            ByteArrayOutputStream encryptedResult = new ByteArrayOutputStream();
-            ObjectOutputStream byteStream = new ObjectOutputStream(encryptedResult);
-
-            ArrayList<byte[]> bytes = new ArrayList<>();
-            bytes.add(enc.encryptedBytes);
-            bytes.add(enc.initialisationVector);
-            byteStream.writeObject(bytes);
-
-            return encryptedResult.toByteArray();
-        } catch (IOException e) {
-            //How is this even possible ???
-            throw new IllegalStateException(e);
-        }
-    }
+    byte[] addAccountWithPrivateKey(byte[] privateKeyBytes, String passphrase);
 }

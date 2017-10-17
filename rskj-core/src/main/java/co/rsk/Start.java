@@ -22,12 +22,15 @@ import co.rsk.config.RskSystemProperties;
 import co.rsk.core.Rsk;
 import co.rsk.mine.MinerClient;
 import co.rsk.mine.MinerServer;
+import co.rsk.core.Wallet;
+import co.rsk.core.WalletFactory;
 import co.rsk.mine.TxBuilder;
 import co.rsk.mine.TxBuilderEx;
 import co.rsk.net.Metrics;
 import co.rsk.net.discovery.UDPServer;
 import co.rsk.rpc.CorsConfiguration;
 import co.rsk.rpc.Web3RskImpl;
+import co.rsk.rpc.modules.*;
 import org.ethereum.cli.CLIInterface;
 import org.ethereum.config.DefaultConfig;
 import org.ethereum.rpc.JsonRpcNettyServer;
@@ -118,7 +121,31 @@ public class Start {
     }
 
     private void enableRpc(Rsk rsk) throws Exception {
-        Web3 web3Service = new Web3RskImpl(rsk, minerClient, minerServer);
+        Wallet wallet;
+        EthModule ethModule;
+        PersonalModule personalModule;
+        if (RskSystemProperties.CONFIG.isWalletEnabled()) {
+            logger.info("Local wallet enabled");
+            wallet = WalletFactory.createPersistentWallet();
+            ethModule = new EthModuleWalletEnabled(rsk, wallet);
+            personalModule = new PersonalModuleWalletEnabled(rsk, wallet);
+        }
+        else {
+            logger.info("Local wallet disabled");
+            wallet = WalletFactory.createDisabledWallet();
+            ethModule = new EthModuleWalletDisabled(rsk);
+            personalModule = new PersonalModuleWalletDisabled();
+        }
+
+        Web3 web3Service = new Web3RskImpl(
+                rsk,
+                RskSystemProperties.CONFIG,
+                minerClient,
+                minerServer,
+                wallet,
+                personalModule,
+                ethModule
+        );
         JsonRpcWeb3ServerHandler serverHandler = new JsonRpcWeb3ServerHandler(web3Service, RskSystemProperties.CONFIG.getRpcModules());
         new JsonRpcNettyServer(
             RskSystemProperties.CONFIG.rpcPort(),
