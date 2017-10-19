@@ -24,8 +24,11 @@ import co.rsk.core.WalletFactory;
 import co.rsk.peg.PegTestUtils;
 import co.rsk.config.RskSystemProperties;
 import co.rsk.core.Wallet;
-import co.rsk.rpc.modules.EthModuleWalletEnabled;
-import co.rsk.rpc.modules.PersonalModuleWalletEnabled;
+import co.rsk.rpc.modules.eth.EthModule;
+import co.rsk.rpc.modules.eth.EthModuleSolidityDisabled;
+import co.rsk.rpc.modules.eth.EthModuleWalletEnabled;
+import co.rsk.rpc.modules.personal.PersonalModule;
+import co.rsk.rpc.modules.personal.PersonalModuleWalletEnabled;
 import org.ethereum.core.Block;
 import org.ethereum.core.Blockchain;
 import org.ethereum.core.Transaction;
@@ -69,9 +72,9 @@ public class Web3RskImplTest {
         Mockito.when(rsk.getWorldManager()).thenReturn(worldManager);
 
         Wallet wallet = WalletFactory.createWallet();
-        PersonalModuleWalletEnabled pm = new PersonalModuleWalletEnabled(rsk, wallet);
-        EthModuleWalletEnabled em = new EthModuleWalletEnabled(rsk, wallet);
-        Web3RskImpl web3 = new Web3RskImpl(rsk, RskSystemProperties.CONFIG, Web3Mocks.getMockMinerClient(), Web3Mocks.getMockMinerServer(), wallet, pm, em);
+        PersonalModule pm = new PersonalModuleWalletEnabled(rsk, wallet);
+        EthModule em = new EthModule(rsk, new EthModuleSolidityDisabled(), new EthModuleWalletEnabled(rsk, wallet));
+        Web3RskImpl web3 = new Web3RskImpl(rsk, RskSystemProperties.CONFIG, Web3Mocks.getMockMinerClient(), Web3Mocks.getMockMinerServer(), pm, em);
         web3.ext_dumpState();
     }
 

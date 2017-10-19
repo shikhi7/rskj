@@ -18,26 +18,37 @@
 
 package co.rsk.core;
 
+import co.rsk.Start;
 import co.rsk.blocks.FileBlockPlayer;
 import co.rsk.blocks.FileBlockRecorder;
 import co.rsk.config.RskSystemProperties;
+import co.rsk.mine.MinerClient;
+import co.rsk.mine.MinerServer;
 import co.rsk.net.*;
 import co.rsk.net.eth.RskWireProtocol;
 import co.rsk.net.handler.TxHandlerImpl;
+import co.rsk.rpc.modules.eth.EthModuleSolidity;
+import co.rsk.rpc.modules.eth.EthModuleSolidityDisabled;
+import co.rsk.rpc.modules.eth.EthModuleSolidityEnabled;
+import co.rsk.rpc.Web3RskImpl;
+import co.rsk.rpc.modules.eth.*;
+import co.rsk.rpc.modules.personal.PersonalModule;
+import co.rsk.rpc.modules.personal.PersonalModuleWalletDisabled;
+import co.rsk.rpc.modules.personal.PersonalModuleWalletEnabled;
 import co.rsk.scoring.PeerScoringManager;
 import co.rsk.scoring.PunishmentParameters;
 import org.ethereum.config.SystemProperties;
 import org.ethereum.core.Block;
 import org.ethereum.core.Blockchain;
 import org.ethereum.core.ImportResult;
+import org.ethereum.core.PendingState;
+import org.ethereum.db.ReceiptStore;
 import org.ethereum.facade.EthereumImpl;
 import org.ethereum.listener.CompositeEthereumListener;
 import org.ethereum.listener.EthereumListener;
+import org.ethereum.manager.AdminInfo;
 import org.ethereum.manager.WorldManager;
 import org.ethereum.net.EthereumChannelInitializerFactory;
-import org.ethereum.core.PendingState;
-import org.ethereum.db.ReceiptStore;
-import org.ethereum.manager.AdminInfo;
 import org.ethereum.net.MessageQueue;
 import org.ethereum.net.NodeManager;
 import org.ethereum.net.client.ConfigCapabilities;
@@ -49,11 +60,8 @@ import org.ethereum.net.message.StaticMessages;
 import org.ethereum.net.p2p.P2pHandler;
 import org.ethereum.net.rlpx.HandshakeHandler;
 import org.ethereum.net.rlpx.MessageCodec;
-import org.ethereum.net.server.Channel;
-import org.ethereum.net.server.ChannelManager;
-import org.ethereum.net.server.EthereumChannelInitializer;
-import org.ethereum.net.server.PeerServer;
-import org.ethereum.net.server.PeerServerImpl;
+import org.ethereum.net.server.*;
+import org.ethereum.solidity.compiler.SolidityCompiler;
 import org.ethereum.util.BuildInfo;
 import org.ethereum.vm.program.invoke.ProgramInvokeFactory;
 import org.slf4j.Logger;
@@ -163,6 +171,33 @@ public class RskFactory {
     }
 
     @Bean
+    public Start.Web3Factory getWeb3Factory(Rsk rsk,
+                                            RskSystemProperties config,
+                                            MinerClient minerClient,
+                                            MinerServer minerServer) {
+        return () -> {
+            Wallet wallet;
+            EthModuleWallet ethModuleWallet;
+            PersonalModule personalModule;
+            if (config.isWalletEnabled()) {
+                logger.info("Local wallet enabled");
+                wallet = WalletFactory.createPersistentWallet();
+                ethModuleWallet = new EthModuleWalletEnabled(rsk, wallet);
+                personalModule = new PersonalModuleWalletEnabled(rsk, wallet);
+            }
+            else {
+                logger.info("Local wallet disabled");
+                wallet = WalletFactory.createDisabledWallet();
+                ethModuleWallet = new EthModuleWalletDisabled();
+                personalModule = new PersonalModuleWalletDisabled();
+            }
+
+            EthModuleSolidity ethModuleSolidity = ethModuleSolidity(config);
+            return new Web3RskImpl(rsk, config, minerClient, minerServer, personalModule, new EthModule(rsk, ethModuleSolidity, ethModuleWallet));
+        };
+    }
+
+    @Bean
     public EthereumImpl.PeerClientFactory getPeerClientFactory(SystemProperties config,
                                                                EthereumListener ethereumListener,
                                                                EthereumChannelInitializerFactory ethereumChannelInitializerFactory) {
@@ -205,5 +240,15 @@ public class RskFactory {
                                     EthereumListener ethereumListener,
                                     EthereumChannelInitializerFactory ethereumChannelInitializerFactory) {
         return new PeerServerImpl(config, ethereumListener, ethereumChannelInitializerFactory);
+    }
+
+    private static EthModuleSolidity ethModuleSolidity(SystemProperties config) {
+        try {
+            return new EthModuleSolidityEnabled(new SolidityCompiler(config));
+        } catch (RuntimeException e) {
+            // the only way we currently have to check if Solidity is available is catching this exception
+            logger.debug("Solidity compiler unavailable", e);
+            return new EthModuleSolidityDisabled();
+        }
     }
 }

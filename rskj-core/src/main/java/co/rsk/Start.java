@@ -22,15 +22,11 @@ import co.rsk.config.RskSystemProperties;
 import co.rsk.core.Rsk;
 import co.rsk.mine.MinerClient;
 import co.rsk.mine.MinerServer;
-import co.rsk.core.Wallet;
-import co.rsk.core.WalletFactory;
 import co.rsk.mine.TxBuilder;
 import co.rsk.mine.TxBuilderEx;
 import co.rsk.net.Metrics;
 import co.rsk.net.discovery.UDPServer;
 import co.rsk.rpc.CorsConfiguration;
-import co.rsk.rpc.Web3RskImpl;
-import co.rsk.rpc.modules.*;
 import org.ethereum.cli.CLIInterface;
 import org.ethereum.config.DefaultConfig;
 import org.ethereum.rpc.JsonRpcNettyServer;
@@ -52,6 +48,7 @@ public class Start {
     private UDPServer udpServer;
     private MinerServer minerServer;
     private MinerClient minerClient;
+    private final Web3Factory web3Factory;
 
     public static void main(String[] args) throws Exception {
         if (RskSystemProperties.CONFIG.databaseReset()){ //FIXME: move this outside main
@@ -64,11 +61,12 @@ public class Start {
     }
 
     @Autowired
-    public Start(Rsk rsk, UDPServer udpServer, MinerServer minerServer, MinerClient minerClient) {
+    public Start(Rsk rsk, UDPServer udpServer, MinerServer minerServer, MinerClient minerClient, Web3Factory web3Factory) {
         this.rsk = rsk;
         this.udpServer = udpServer;
         this.minerServer = minerServer;
         this.minerClient = minerClient;
+        this.web3Factory = web3Factory;
     }
 
     public void startNode(String[] args) throws Exception {
@@ -93,7 +91,7 @@ public class Start {
 
         if (RskSystemProperties.CONFIG.isRpcEnabled()) {
             logger.info("RPC enabled");
-            enableRpc(rsk);
+            enableRpc();
         }
         else {
             logger.info("RPC disabled");
@@ -120,32 +118,8 @@ public class Start {
         udpServer.start();
     }
 
-    private void enableRpc(Rsk rsk) throws Exception {
-        Wallet wallet;
-        EthModule ethModule;
-        PersonalModule personalModule;
-        if (RskSystemProperties.CONFIG.isWalletEnabled()) {
-            logger.info("Local wallet enabled");
-            wallet = WalletFactory.createPersistentWallet();
-            ethModule = new EthModuleWalletEnabled(rsk, wallet);
-            personalModule = new PersonalModuleWalletEnabled(rsk, wallet);
-        }
-        else {
-            logger.info("Local wallet disabled");
-            wallet = WalletFactory.createDisabledWallet();
-            ethModule = new EthModuleWalletDisabled(rsk);
-            personalModule = new PersonalModuleWalletDisabled();
-        }
-
-        Web3 web3Service = new Web3RskImpl(
-                rsk,
-                RskSystemProperties.CONFIG,
-                minerClient,
-                minerServer,
-                wallet,
-                personalModule,
-                ethModule
-        );
+    private void enableRpc() throws Exception {
+        Web3 web3Service = web3Factory.newInstance();
         JsonRpcWeb3ServerHandler serverHandler = new JsonRpcWeb3ServerHandler(web3Service, RskSystemProperties.CONFIG.getRpcModules());
         new JsonRpcNettyServer(
             RskSystemProperties.CONFIG.rpcPort(),
@@ -173,5 +147,9 @@ public class Start {
                 throw e1;
             }
         }
+    }
+
+    public interface Web3Factory {
+        Web3 newInstance();
     }
 }

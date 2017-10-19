@@ -152,9 +152,4 @@ public class WorldManagerImpl implements WorldManager {
         return networkStateExporter;
     }
 
-    @Override
-    public SolidityCompiler getSolidityCompiler() {
-        return this.solidityCompiler;
-    }
-
 }

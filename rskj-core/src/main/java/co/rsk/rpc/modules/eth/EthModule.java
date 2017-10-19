@@ -16,33 +16,42 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package co.rsk.rpc.modules;
+package co.rsk.rpc.modules.eth;
 
 import org.ethereum.core.Block;
 import org.ethereum.core.Transaction;
 import org.ethereum.facade.Ethereum;
 import org.ethereum.rpc.Web3;
+import org.ethereum.rpc.dto.CompilationResultDTO;
 import org.ethereum.rpc.exception.JsonRpcUnimplementedMethodException;
 import org.ethereum.vm.program.ProgramResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Map;
+
 import static org.ethereum.rpc.TypeConverter.toJsonHex;
 
 // TODO add all RPC methods
-public abstract class EthModule {
+public class EthModule
+    implements EthModuleSolidity, EthModuleWallet {
 
-    protected static final Logger LOGGER = LoggerFactory.getLogger("web3");
+    private static final Logger LOGGER = LoggerFactory.getLogger("web3");
 
-    protected final Ethereum eth;
+    private final Ethereum eth;
+    private final EthModuleSolidity ethModuleSolidity;
+    private final EthModuleWallet ethModuleWallet;
 
-    public EthModule(Ethereum eth) {
+    public EthModule(Ethereum eth, EthModuleSolidity ethModuleSolidity, EthModuleWallet ethModuleWallet) {
         this.eth = eth;
+        this.ethModuleSolidity = ethModuleSolidity;
+        this.ethModuleWallet = ethModuleWallet;
     }
 
-    public abstract String[] accounts();
-
-    public abstract String sendTransaction(Web3.CallArguments args);
+    @Override
+    public String[] accounts() {
+        return ethModuleWallet.accounts();
+    }
 
     public String call(Web3.CallArguments args, String bnOrId) {
         String s = null;
@@ -58,6 +67,11 @@ public abstract class EthModule {
         }
     }
 
+    @Override
+    public Map<String, CompilationResultDTO> compileSolidity(String contract) throws Exception {
+        return ethModuleSolidity.compileSolidity(contract);
+    }
+
     public String estimateGas(Web3.CallArguments args) {
         String s = null;
         try {
@@ -66,6 +80,11 @@ public abstract class EthModule {
         } finally {
             LOGGER.debug("eth_estimateGas(): {}" + s);
         }
+    }
+
+    @Override
+    public String sendTransaction(Web3.CallArguments args) {
+        return ethModuleWallet.sendTransaction(args);
     }
 
     private ProgramResult createCallTxAndExecute(Web3.CallArguments args) {
@@ -79,5 +98,9 @@ public abstract class EthModule {
         Block block = eth.getWorldManager().getBlockchain().getBestBlock();
 
         return eth.callConstantCallTransaction(tx, block);
+    }
+
+    public String sign(String addr, String data) {
+        return ethModuleWallet.sign(addr, data);
     }
 }

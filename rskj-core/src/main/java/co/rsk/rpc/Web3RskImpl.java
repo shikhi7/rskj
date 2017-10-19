@@ -20,12 +20,11 @@ package co.rsk.rpc;
 
 import co.rsk.config.RskMiningConstants;
 import co.rsk.config.RskSystemProperties;
-import co.rsk.core.Wallet;
 import co.rsk.mine.MinerClient;
 import co.rsk.mine.MinerServer;
 import co.rsk.mine.MinerWork;
-import co.rsk.rpc.modules.EthModule;
-import co.rsk.rpc.modules.PersonalModule;
+import co.rsk.rpc.modules.eth.EthModule;
+import co.rsk.rpc.modules.personal.PersonalModule;
 import org.apache.commons.lang3.ArrayUtils;
 import org.ethereum.core.Block;
 import org.ethereum.core.BlockHeader;
@@ -57,10 +56,9 @@ public class Web3RskImpl extends Web3Impl {
                        RskSystemProperties properties,
                        MinerClient minerClient,
                        MinerServer minerServer,
-                       Wallet wallet,
                        PersonalModule personalModule,
                        EthModule ethModule) {
-        super(eth, properties, wallet, minerClient, minerServer, personalModule, ethModule);
+        super(eth, properties, minerClient, minerServer, personalModule, ethModule);
         this.minerServer = minerServer;
     }
 

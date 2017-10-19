@@ -16,27 +16,22 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package co.rsk.rpc.modules;
+package co.rsk.rpc.modules.eth;
 
-import co.rsk.config.RskSystemProperties;
-import org.ethereum.rpc.Web3;
+import org.ethereum.rpc.dto.CompilationResultDTO;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-public interface PersonalModule {
-    String dumpRawKey(String address) throws Exception;
+import java.util.HashMap;
+import java.util.Map;
 
-    String importRawKey(String key, String passphrase);
+public class EthModuleSolidityDisabled implements EthModuleSolidity {
 
-    void init(RskSystemProperties properties);
+    private static final Logger LOGGER = LoggerFactory.getLogger("web3");
 
-    String[] listAccounts();
-
-    boolean lockAccount(String address);
-
-    String newAccountWithSeed(String seed);
-
-    String newAccount(String passphrase);
-
-    String sendTransaction(Web3.CallArguments args, String passphrase) throws Exception;
-
-    boolean unlockAccount(String address, String passphrase, String duration);
+    @Override
+    public Map<String, CompilationResultDTO> compileSolidity(String contract) throws Exception {
+        LOGGER.debug("eth_compileSolidity(): Solidity compiler not enabled");
+        return new HashMap<>();
+    }
 }

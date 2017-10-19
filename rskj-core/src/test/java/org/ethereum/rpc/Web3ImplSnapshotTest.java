@@ -20,14 +20,13 @@ package org.ethereum.rpc;
 
 import co.rsk.blockchain.utils.BlockGenerator;
 import co.rsk.config.ConfigUtils;
-import co.rsk.core.WalletFactory;
 import co.rsk.core.bc.BlockChainStatus;
 import co.rsk.mine.MinerClientImpl;
 import co.rsk.mine.MinerManagerTest;
 import co.rsk.mine.MinerServer;
 import co.rsk.mine.MinerServerImpl;
-import co.rsk.rpc.modules.PersonalModule;
-import co.rsk.rpc.modules.PersonalModuleWalletDisabled;
+import co.rsk.rpc.modules.personal.PersonalModule;
+import co.rsk.rpc.modules.personal.PersonalModuleWalletDisabled;
 import co.rsk.test.World;
 import co.rsk.validators.BlockValidationRule;
 import org.ethereum.core.Block;
@@ -168,7 +167,7 @@ public class Web3ImplSnapshotTest {
     private static Web3Impl createWeb3(World world, SimpleEthereum ethereum, MinerServer minerServer) {
         MinerClientImpl minerClient = new MinerClientImpl();
         PersonalModule pm = new PersonalModuleWalletDisabled();
-        Web3Impl web3 = new Web3Impl(Web3Mocks.getMockEthereum(), Web3Mocks.getMockProperties(), WalletFactory.createWallet(), minerClient, minerServer, pm, null);
+        Web3Impl web3 = new Web3Impl(Web3Mocks.getMockEthereum(), Web3Mocks.getMockProperties(), minerClient, minerServer, pm, null);
 
         SimpleWorldManager worldManager = new SimpleWorldManager();
         worldManager.setBlockchain(world.getBlockChain());

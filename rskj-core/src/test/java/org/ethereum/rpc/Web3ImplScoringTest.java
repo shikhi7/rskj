@@ -23,8 +23,11 @@ import co.rsk.core.Wallet;
 import co.rsk.core.WalletFactory;
 import co.rsk.net.NodeID;
 import co.rsk.rpc.Web3RskImpl;
-import co.rsk.rpc.modules.EthModuleWalletEnabled;
-import co.rsk.rpc.modules.PersonalModuleWalletEnabled;
+import co.rsk.rpc.modules.eth.EthModule;
+import co.rsk.rpc.modules.eth.EthModuleSolidityDisabled;
+import co.rsk.rpc.modules.eth.EthModuleWalletEnabled;
+import co.rsk.rpc.modules.personal.PersonalModule;
+import co.rsk.rpc.modules.personal.PersonalModuleWalletEnabled;
 import co.rsk.scoring.EventType;
 import co.rsk.scoring.PeerScoringInformation;
 import co.rsk.scoring.PeerScoringManager;
@@ -317,9 +320,9 @@ public class Web3ImplScoringTest {
         rsk.worldManager = worldManager;
 
         Wallet wallet = WalletFactory.createWallet();
-        PersonalModuleWalletEnabled pm = new PersonalModuleWalletEnabled(rsk, wallet);
-        EthModuleWalletEnabled em = new EthModuleWalletEnabled(rsk, wallet);
-        return new Web3RskImpl(rsk, RskSystemProperties.CONFIG, Web3Mocks.getMockMinerClient(), Web3Mocks.getMockMinerServer(), wallet, pm, em);
+        PersonalModule pm = new PersonalModuleWalletEnabled(rsk, wallet);
+        EthModule em = new EthModule(rsk, new EthModuleSolidityDisabled(), new EthModuleWalletEnabled(rsk, wallet));
+        return new Web3RskImpl(rsk, RskSystemProperties.CONFIG, Web3Mocks.getMockMinerClient(), Web3Mocks.getMockMinerServer(), pm, em);
     }
 
     private static NodeID generateNodeID() {

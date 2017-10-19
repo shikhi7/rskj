@@ -16,17 +16,20 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package co.rsk.rpc.modules;
+package co.rsk.rpc.modules.eth;
 
 import co.rsk.core.Wallet;
 import org.ethereum.core.Account;
 import org.ethereum.core.PendingState;
 import org.ethereum.core.Transaction;
+import org.ethereum.crypto.ECKey;
 import org.ethereum.facade.Ethereum;
 import org.ethereum.rpc.TypeConverter;
 import org.ethereum.rpc.Web3;
 import org.ethereum.rpc.exception.JsonRpcInvalidParamException;
 import org.ethereum.vm.GasCost;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.spongycastle.util.encoders.Hex;
 
 import java.math.BigInteger;
@@ -34,11 +37,15 @@ import java.util.Arrays;
 
 import static org.ethereum.rpc.TypeConverter.stringHexToByteArray;
 
-public class EthModuleWalletEnabled extends EthModule {
+public class EthModuleWalletEnabled implements EthModuleWallet {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger("web3");
+
+    private final Ethereum eth;
     private final Wallet wallet;
 
     public EthModuleWalletEnabled(Ethereum eth, Wallet wallet) {
-        super(eth);
+        this.eth = eth;
         this.wallet = wallet;
     }
 
@@ -75,6 +82,20 @@ public class EthModuleWalletEnabled extends EthModule {
     }
 
     @Override
+    public String sign(String addr, String data) {
+        String s = null;
+        try {
+            Account account = this.wallet.getAccount(stringHexToByteArray(addr));
+            if (account == null)
+                throw new JsonRpcInvalidParamException("Account not found");
+
+            return s = this.sign(data, account.getEcKey());
+        } finally {
+            LOGGER.debug("eth_sign({}, {}): {}", addr, data, s);
+        }
+    }
+
+    @Override
     public String[] accounts() {
         String[] s = null;
         try {
@@ -86,5 +107,14 @@ public class EthModuleWalletEnabled extends EthModule {
 
     private Account getAccount(String address) {
         return this.wallet.getAccount(stringHexToByteArray(address));
+    }
+
+    private String sign(String data, ECKey ecKey) {
+        byte[] dataHash = TypeConverter.stringHexToByteArray(data);
+        ECKey.ECDSASignature signature = ecKey.sign(dataHash);
+
+        String signatureAsString = signature.r.toString() + signature.s.toString() + signature.v;
+
+        return TypeConverter.toJsonHex(signatureAsString);
     }
 }

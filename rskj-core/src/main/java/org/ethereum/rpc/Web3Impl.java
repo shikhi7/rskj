@@ -21,7 +21,6 @@ package org.ethereum.rpc;
 import co.rsk.config.RskSystemProperties;
 import co.rsk.core.Rsk;
 import co.rsk.core.SnapshotManager;
-import co.rsk.core.Wallet;
 import co.rsk.mine.MinerClient;
 import co.rsk.mine.MinerManager;
 import co.rsk.mine.MinerServer;
@@ -30,15 +29,12 @@ import co.rsk.peg.Bridge;
 import co.rsk.peg.BridgeState;
 import co.rsk.peg.BridgeStateReader;
 import co.rsk.rpc.ModuleDescription;
-import co.rsk.rpc.modules.EthModule;
-import co.rsk.rpc.modules.PersonalModule;
+import co.rsk.rpc.modules.eth.EthModule;
+import co.rsk.rpc.modules.personal.PersonalModule;
 import co.rsk.scoring.InvalidInetAddressException;
 import co.rsk.scoring.PeerScoringInformation;
 import co.rsk.scoring.PeerScoringManager;
-import com.google.common.annotations.VisibleForTesting;
-import org.apache.commons.collections4.map.HashedMap;
 import org.ethereum.core.*;
-import org.ethereum.crypto.ECKey;
 import org.ethereum.crypto.HashUtil;
 import org.ethereum.db.BlockInformation;
 import org.ethereum.db.TransactionInfo;
@@ -50,13 +46,11 @@ import org.ethereum.manager.WorldManager;
 import org.ethereum.net.client.Capability;
 import org.ethereum.net.server.Channel;
 import org.ethereum.net.server.ChannelManager;
-import org.ethereum.rpc.dto.CompilationInfoDTO;
 import org.ethereum.rpc.dto.CompilationResultDTO;
 import org.ethereum.rpc.dto.TransactionReceiptDTO;
 import org.ethereum.rpc.dto.TransactionResultDTO;
 import org.ethereum.rpc.exception.JsonRpcInvalidParamException;
 import org.ethereum.rpc.exception.JsonRpcUnimplementedMethodException;
-import org.ethereum.solidity.compiler.SolidityCompiler;
 import org.ethereum.util.BuildInfo;
 import org.ethereum.vm.DataWord;
 import org.ethereum.vm.LogInfo;
@@ -98,12 +92,8 @@ public class Web3Impl implements Web3 {
 
     private final Object filterLock = new Object();
 
-    private Wallet wallet;
-
     private MinerClient minerClient;
     private MinerServer minerServer;
-
-    private SolidityCompiler solidityCompiler;
 
     private PeerScoringManager peerScoringManager;
 
@@ -112,7 +102,6 @@ public class Web3Impl implements Web3 {
 
     protected Web3Impl(Ethereum eth,
                        RskSystemProperties properties,
-                       Wallet wallet,
                        MinerClient minerClient,
                        MinerServer minerServer,
                        PersonalModule personalModule,
@@ -120,7 +109,6 @@ public class Web3Impl implements Web3 {
         this.eth = eth;
         this.worldManager = eth.getWorldManager();
         this.repository = eth.getRepository();
-        this.wallet = wallet;
         this.minerClient = minerClient;
         this.minerServer = minerServer;
         this.personalModule = personalModule;
@@ -132,8 +120,6 @@ public class Web3Impl implements Web3 {
         initialBlockNumber = this.worldManager.getBlockchain().getBestBlock().getNumber();
 
         compositeEthereumListener = new CompositeEthereumListener();
-
-        this.solidityCompiler = this.worldManager.getSolidityCompiler();
 
         compositeEthereumListener.addListener(this.setupListener());
 
@@ -550,27 +536,7 @@ public class Web3Impl implements Web3 {
     }
 
     public String eth_sign(String addr, String data) throws Exception {
-        String s = null;
-        try {
-            Account account = getAccount(JSonHexToHex(addr));
-            if (account == null)
-                throw new JsonRpcInvalidParamException("Account not found");
-
-            return s = this.sign(data, account.getEcKey());
-        } finally {
-            if (logger.isDebugEnabled())
-                logger.debug("eth_sign({}, {}): {}", addr, data, s);
-        }
-    }
-
-    private String sign(String data, ECKey ecKey) {
-        byte[] dataHash = TypeConverter.stringHexToByteArray(data);
-        ECKey.ECDSASignature signature = ecKey.sign(dataHash);
-
-        String signatureAsString = signature.r.toString() + signature.s.toString() + signature.v;
-
-        // byte[] rlpSig = RLP.encode(signature);
-        return TypeConverter.toJsonHex(signatureAsString);
+        return ethModule.sign(addr, data);
     }
 
     public String eth_sendTransaction(CallArguments args) throws Exception {
@@ -883,32 +849,7 @@ public class Web3Impl implements Web3 {
 
     @Override
     public Map<String, CompilationResultDTO> eth_compileSolidity(String contract) throws Exception {
-        Map<String, CompilationResultDTO> compilationResultDTOMap = new HashedMap<>();
-        try {
-            SolidityCompiler.Result res = solidityCompiler.compile(contract.getBytes(StandardCharsets.UTF_8), true, SolidityCompiler.Options.ABI, SolidityCompiler.Options.BIN);
-            if (!res.errors.isEmpty()) {
-                throw new RuntimeException("Compilation error: " + res.errors);
-            }
-            org.ethereum.solidity.compiler.CompilationResult result = org.ethereum.solidity.compiler.CompilationResult.parse(res.output);
-            org.ethereum.solidity.compiler.CompilationResult.ContractMetadata contractMetadata = result.contracts.values().iterator().next();
-
-            CompilationInfoDTO compilationInfo = new CompilationInfoDTO();
-            compilationInfo.setSource(contract);
-            compilationInfo.setLanguage("Solidity");
-            compilationInfo.setLanguageVersion("0");
-            compilationInfo.setCompilerVersion(result.version);
-            compilationInfo.setAbiDefinition(new CallTransaction.Contract(contractMetadata.abi));
-
-            CompilationResultDTO compilationResult = new CompilationResultDTO(contractMetadata, compilationInfo);
-            String contractName = (String)result.contracts.keySet().toArray()[0];
-
-            compilationResultDTOMap.put(contractName, compilationResult);
-
-            return compilationResultDTOMap;
-        } finally {
-            if (logger.isDebugEnabled())
-                logger.debug("eth_compileSolidity(" + contract + ")" + compilationResultDTOMap);
-        }
+        return ethModule.compileSolidity(contract);
     }
 
     @Override
@@ -1356,16 +1297,6 @@ public class Web3Impl implements Web3 {
         ProgramResult res = createCallTxAndExecute(arguments, new byte[32]);
         BridgeState state = BridgeStateReader.readSate(TypeConverter.removeZeroX(toJsonHex(res.getHReturn())));
         return state.stateToMap();
-    }
-
-    @VisibleForTesting
-    public Account getAccount(String address) {
-        return this.wallet.getAccount(stringHexToByteArray(address));
-    }
-
-    @VisibleForTesting
-    public Account getAccount(String address, String passphrase) {
-        return this.wallet.getAccount(stringHexToByteArray(address), passphrase);
     }
 
     @Override

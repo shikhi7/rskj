@@ -25,10 +25,13 @@ import co.rsk.core.bc.PendingStateImpl;
 import co.rsk.mine.MinerClient;
 import co.rsk.net.simples.SimpleBlockProcessor;
 import co.rsk.rpc.Web3RskImpl;
-import co.rsk.rpc.modules.EthModuleWalletEnabled;
-import co.rsk.rpc.modules.PersonalModule;
-import co.rsk.rpc.modules.PersonalModuleWalletEnabled;
-import co.rsk.rpc.modules.PersonalModuleWalletDisabled;
+import co.rsk.rpc.modules.eth.EthModule;
+import co.rsk.rpc.modules.eth.EthModuleSolidityDisabled;
+import co.rsk.rpc.modules.eth.EthModuleSolidityEnabled;
+import co.rsk.rpc.modules.eth.EthModuleWalletEnabled;
+import co.rsk.rpc.modules.personal.PersonalModule;
+import co.rsk.rpc.modules.personal.PersonalModuleWalletDisabled;
+import co.rsk.rpc.modules.personal.PersonalModuleWalletEnabled;
 import co.rsk.test.World;
 import co.rsk.test.builders.AccountBuilder;
 import co.rsk.test.builders.BlockBuilder;
@@ -44,6 +47,7 @@ import org.ethereum.rpc.dto.CompilationResultDTO;
 import org.ethereum.rpc.dto.TransactionReceiptDTO;
 import org.ethereum.rpc.dto.TransactionResultDTO;
 import org.ethereum.rpc.exception.JsonRpcInvalidParamException;
+import org.ethereum.solidity.compiler.SolidityCompiler;
 import org.ethereum.vm.program.ProgramResult;
 import org.junit.Assert;
 import org.junit.Ignore;
@@ -57,10 +61,15 @@ import java.math.BigInteger;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static org.ethereum.rpc.TypeConverter.stringHexToByteArray;
+
 /**
  * Created by Ruben Altman on 09/06/2016.
  */
 public class Web3ImplTest {
+
+    Wallet wallet;
+
     @Test
     public void web3_clientVersion() throws Exception {
         Web3 web3 = createWeb3();
@@ -252,7 +261,7 @@ public class Web3ImplTest {
         RskSystemProperties mockProperties = Web3Mocks.getMockProperties();
         MinerClient minerClient = new SimpleMinerClient();
         PersonalModule personalModule = new PersonalModuleWalletDisabled();
-        Web3 web3 = new Web3Impl(ethMock, mockProperties, WalletFactory.createWallet(), minerClient, null, personalModule, null);
+        Web3 web3 = new Web3Impl(ethMock, mockProperties, minerClient, null, personalModule, null);
 
         Assert.assertTrue("Node is not mining", !web3.eth_mining());
 
@@ -1000,7 +1009,7 @@ public class Web3ImplTest {
         Ethereum ethMock = Web3Mocks.getMockEthereum();
         RskSystemProperties mockProperties = Web3Mocks.getMockProperties();
         PersonalModule personalModule = new PersonalModuleWalletDisabled();
-        Web3 web3 = new Web3Impl(ethMock, mockProperties, WalletFactory.createWallet(), null, minerServer, personalModule, null);
+        Web3 web3 = new Web3Impl(ethMock, mockProperties, null, minerServer, personalModule, null);
 
         Assert.assertTrue("Not returning coinbase specified on miner server", web3.eth_coinbase().compareTo("0x" + originalCoibase) == 0);
     }
@@ -1040,7 +1049,7 @@ public class Web3ImplTest {
             e.printStackTrace();
         }
 
-        String expectedSignature = "0x" + web3.getAccount(addr1).getEcKey().sign(hash).r.toString() + web3.getAccount(addr1).getEcKey().sign(hash).s.toString() + web3.getAccount(addr1).getEcKey().sign(hash).v;
+        String expectedSignature = "0x" + wallet.getAccount(stringHexToByteArray(addr1)).getEcKey().sign(hash).r.toString() + wallet.getAccount(stringHexToByteArray(addr1)).getEcKey().sign(hash).s.toString() + wallet.getAccount(stringHexToByteArray(addr1)).getEcKey().sign(hash).v;
 
         Assert.assertTrue("Signature is not the same one returned by the key", expectedSignature.compareTo(signature) == 0);
     }
@@ -1055,7 +1064,7 @@ public class Web3ImplTest {
         Account account = null;
 
         try {
-            account = web3.getAccount(addr, "passphrase1");
+            account = wallet.getAccount(stringHexToByteArray(addr), "passphrase1");
         }
         catch (Exception e) {
             e.printStackTrace();
@@ -1094,11 +1103,11 @@ public class Web3ImplTest {
 
         org.junit.Assert.assertNotNull(address);
 
-        Account account0 = web3.getAccount(address);
+        Account account0 = wallet.getAccount(stringHexToByteArray(address));
 
         org.junit.Assert.assertNull(account0);
 
-        Account account = web3.getAccount(address, "passphrase1");
+        Account account = wallet.getAccount(stringHexToByteArray(address), "passphrase1");
 
         org.junit.Assert.assertNotNull(account);
         org.junit.Assert.assertEquals(address, "0x" + Hex.toHexString(account.getAddress()));
@@ -1156,7 +1165,8 @@ public class Web3ImplTest {
 
         // ***** Verifies tx hash
         Transaction tx = Transaction.create(toAddress.substring(2), value, nonce, gasPrice, gasLimit, args.data);
-        tx.sign(web3.getAccount(addr1, "passphrase1").getEcKey().getPrivKeyBytes());
+        Account account = wallet.getAccount(stringHexToByteArray(addr1), "passphrase1");
+        tx.sign(account.getEcKey().getPrivKeyBytes());
 
         String expectedHash = TypeConverter.toJsonHex(tx.getHash());
 
@@ -1170,13 +1180,13 @@ public class Web3ImplTest {
 
         String addr = web3.personal_newAccount("passphrase1");
 
-        Account account0 = web3.getAccount(addr);
+        Account account0 = wallet.getAccount(stringHexToByteArray(addr));
 
         org.junit.Assert.assertNull(account0);
 
         org.junit.Assert.assertTrue(web3.personal_unlockAccount(addr, "passphrase1", ""));
 
-        Account account = web3.getAccount(addr);
+        Account account = wallet.getAccount(stringHexToByteArray(addr));
 
         org.junit.Assert.assertNotNull(account);
     }
@@ -1188,7 +1198,7 @@ public class Web3ImplTest {
 
         String addr = web3.personal_newAccount("passphrase1");
 
-        Account account0 = web3.getAccount(addr);
+        Account account0 = wallet.getAccount(stringHexToByteArray(addr));
 
         org.junit.Assert.assertNull(account0);
 
@@ -1204,19 +1214,19 @@ public class Web3ImplTest {
 
         String addr = web3.personal_newAccount("passphrase1");
 
-        Account account0 = web3.getAccount(addr);
+        Account account0 = wallet.getAccount(stringHexToByteArray(addr));
 
         org.junit.Assert.assertNull(account0);
 
         org.junit.Assert.assertTrue(web3.personal_unlockAccount(addr, "passphrase1", ""));
 
-        Account account = web3.getAccount(addr);
+        Account account = wallet.getAccount(stringHexToByteArray(addr));
 
         org.junit.Assert.assertNotNull(account);
 
         org.junit.Assert.assertTrue(web3.personal_lockAccount(addr));
 
-        Account account1 = web3.getAccount(addr);
+        Account account1 = wallet.getAccount(stringHexToByteArray(addr));
 
         org.junit.Assert.assertNull(account1);
     }
@@ -1257,7 +1267,7 @@ public class Web3ImplTest {
 
         // ***** Verifies tx hash
         Transaction tx = Transaction.create(toAddress.substring(2), value, nonce, gasPrice, gasLimit, args.data);
-        tx.sign(web3.getAccount(addr1).getEcKey().getPrivKeyBytes());
+        tx.sign(wallet.getAccount(stringHexToByteArray(addr1)).getEcKey().getPrivKeyBytes());
 
         String expectedHash = TypeConverter.toJsonHex(tx.getHash());
 
@@ -1285,24 +1295,29 @@ public class Web3ImplTest {
     }
 
     private Web3Impl createWeb3(Ethereum eth) {
-        Wallet wallet = WalletFactory.createWallet();
+        wallet = WalletFactory.createWallet();
+        PersonalModuleWalletEnabled personalModule = new PersonalModuleWalletEnabled(eth, wallet);
+        EthModule ethModule = new EthModule(eth, new EthModuleSolidityDisabled(), new EthModuleWalletEnabled(eth, wallet));
         MinerClient minerClient = new SimpleMinerClient();
-        return new Web3RskImpl(eth, RskSystemProperties.CONFIG, minerClient, Web3Mocks.getMockMinerServer(), wallet, new PersonalModuleWalletEnabled(eth, wallet), new EthModuleWalletEnabled(eth, wallet));
+        return new Web3RskImpl(eth, RskSystemProperties.CONFIG, minerClient, Web3Mocks.getMockMinerServer(), personalModule, ethModule);
     }
 
     @Test
     @Ignore
     public void eth_compileSolidity() throws Exception {
-        SystemProperties systemProperties = Mockito.mock(SystemProperties.class);
+        RskSystemProperties systemProperties = Mockito.mock(RskSystemProperties.class);
         String solc = System.getProperty("solc");
         if(StringUtils.isEmpty(solc))
             solc = "/usr/bin/solc";
 
         Mockito.when(systemProperties.customSolcPath()).thenReturn(solc);
-        Web3Impl web3 = createWeb3();
+        Ethereum eth = Mockito.mock(Ethereum.class);
+        EthModule ethModule = new EthModule(eth, new EthModuleSolidityEnabled(new SolidityCompiler(systemProperties)), null);
+        PersonalModule personalModule = new PersonalModuleWalletDisabled();
+        Web3Impl web3 = new Web3RskImpl(eth, systemProperties, null, null, personalModule, ethModule);
         String contract = "pragma solidity ^0.4.1; contract rsk { function multiply(uint a) returns(uint d) {   return a * 7;   } }";
 
-            Map<String, CompilationResultDTO> result = web3.eth_compileSolidity(contract);
+        Map<String, CompilationResultDTO> result = web3.eth_compileSolidity(contract);
 
         org.junit.Assert.assertNotNull(result);
 
@@ -1312,6 +1327,29 @@ public class Web3ImplTest {
             dto = result.get("<stdin>:rsk");
 
         org.junit.Assert.assertEquals(contract , dto.info.getSource());
+    }
+
+    @Test
+    public void eth_compileSolidityWithoutSolidity() throws Exception {
+        SystemProperties systemProperties = Mockito.mock(SystemProperties.class);
+        String solc = System.getProperty("solc");
+        if(StringUtils.isEmpty(solc))
+            solc = "/usr/bin/solc";
+
+        Mockito.when(systemProperties.customSolcPath()).thenReturn(solc);
+
+        Wallet wallet = WalletFactory.createWallet();
+        Ethereum eth = Mockito.mock(Ethereum.class, Mockito.RETURNS_DEEP_STUBS);
+        Mockito.when(eth.getWorldManager().getBlockchain().getBestBlock().getNumber()).thenReturn(1L);
+        EthModule ethModule = new EthModule(eth, new EthModuleSolidityDisabled(), new EthModuleWalletEnabled(eth, wallet));
+        Web3Impl web3 = new Web3RskImpl(eth, RskSystemProperties.CONFIG, null, null, new PersonalModuleWalletDisabled(), ethModule);
+
+        String contract = "pragma solidity ^0.4.1; contract rsk { function multiply(uint a) returns(uint d) {   return a * 7;   } }";
+
+        Map<String, CompilationResultDTO> result = web3.eth_compileSolidity(contract);
+
+        org.junit.Assert.assertNotNull(result);
+        org.junit.Assert.assertEquals(0, result.size());
     }
 
 }

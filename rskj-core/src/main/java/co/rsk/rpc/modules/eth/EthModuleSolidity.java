@@ -16,30 +16,13 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package co.rsk.rpc.modules;
+package co.rsk.rpc.modules.eth;
 
-import org.ethereum.facade.Ethereum;
-import org.ethereum.rpc.Web3;
-import org.ethereum.rpc.exception.JsonRpcInvalidParamException;
+import org.ethereum.rpc.dto.CompilationResultDTO;
 
-import java.util.Arrays;
+import java.util.Map;
 
-public class EthModuleWalletDisabled extends EthModule {
+public interface EthModuleSolidity {
 
-    public EthModuleWalletDisabled(Ethereum eth) {
-        super(eth);
-    }
-
-    @Override
-    public String[] accounts() {
-        String[] accounts = {};
-        LOGGER.debug("eth_accounts(): {}", Arrays.toString(accounts));
-        return accounts;
-    }
-
-    @Override
-    public String sendTransaction(Web3.CallArguments args) {
-        LOGGER.debug("eth_sendTransaction({}): {}", args, null);
-        throw new JsonRpcInvalidParamException("Local wallet is disabled in this node");
-    }
+    Map<String, CompilationResultDTO> compileSolidity(String contract) throws Exception;
 }

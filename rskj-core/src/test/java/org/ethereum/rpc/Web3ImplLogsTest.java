@@ -23,8 +23,11 @@ import co.rsk.core.Wallet;
 import co.rsk.core.WalletFactory;
 import co.rsk.core.bc.PendingStateImpl;
 import co.rsk.rpc.Web3RskImpl;
-import co.rsk.rpc.modules.EthModuleWalletEnabled;
-import co.rsk.rpc.modules.PersonalModuleWalletEnabled;
+import co.rsk.rpc.modules.eth.EthModule;
+import co.rsk.rpc.modules.eth.EthModuleSolidityDisabled;
+import co.rsk.rpc.modules.eth.EthModuleWalletEnabled;
+import co.rsk.rpc.modules.personal.PersonalModule;
+import co.rsk.rpc.modules.personal.PersonalModuleWalletEnabled;
 import co.rsk.test.World;
 import co.rsk.test.builders.AccountBuilder;
 import co.rsk.test.builders.BlockBuilder;
@@ -445,7 +448,9 @@ public class Web3ImplLogsTest {
     }
 
     private Web3Impl createWeb3(Ethereum eth, Wallet wallet) {
-        return new Web3RskImpl(eth, RskSystemProperties.CONFIG, Web3Mocks.getMockMinerClient(), Web3Mocks.getMockMinerServer(), wallet, new PersonalModuleWalletEnabled(eth, wallet), new EthModuleWalletEnabled(eth, wallet));
+        PersonalModule personalModule = new PersonalModuleWalletEnabled(eth, wallet);
+        EthModule ethModule = new EthModule(eth, new EthModuleSolidityDisabled(), new EthModuleWalletEnabled(eth, wallet));
+        return new Web3RskImpl(eth, RskSystemProperties.CONFIG, Web3Mocks.getMockMinerClient(), Web3Mocks.getMockMinerServer(), personalModule, ethModule);
     }
 
     private Web3Impl getWeb3() {

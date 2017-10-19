@@ -16,7 +16,7 @@
  * along with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-package co.rsk.rpc.modules;
+package co.rsk.rpc.modules.personal;
 
 import co.rsk.config.RskSystemProperties;
 import co.rsk.config.WalletAccount;
