@@ -118,7 +118,7 @@ public class Start {
     }
 
     private void enableRpc(Rsk rsk) throws Exception {
-        Web3 web3Service = new Web3RskImpl(rsk, minerServer, minerClient);
+        Web3 web3Service = new Web3RskImpl(rsk, minerClient, minerServer);
         JsonRpcWeb3ServerHandler serverHandler = new JsonRpcWeb3ServerHandler(web3Service, RskSystemProperties.CONFIG.getRpcModules());
         new JsonRpcNettyServer(
             RskSystemProperties.CONFIG.rpcPort(),
